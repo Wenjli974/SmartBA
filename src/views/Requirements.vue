@@ -136,22 +136,89 @@ const exportDocument = () => {
 }
 
 .markdown-content {
-  line-height: 1.6;
+  line-height: 1.8;
+  text-align: left;
+  font-size: 14px;
+  color: #2c3e50;
 }
 
 .markdown-content :deep(h1) {
-  margin-top: 0;
+  margin: 24px 0 16px;
+  font-size: 28px;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
 }
 
 .markdown-content :deep(h2) {
-  margin-top: 30px;
+  margin: 20px 0 16px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .markdown-content :deep(h3) {
-  margin-top: 20px;
+  margin: 16px 0 12px;
+  font-size: 20px;
+  font-weight: 500;
+  color: #374151;
 }
 
-.markdown-content :deep(ul) {
-  padding-left: 20px;
+.markdown-content :deep(p) {
+  margin: 12px 0;
+  line-height: 1.8;
+  text-align: left;
+}
+
+.markdown-content :deep(ul), 
+.markdown-content :deep(ol) {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+.markdown-content :deep(li) {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.markdown-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  text-align: left;
+}
+
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.markdown-content :deep(th) {
+  background-color: #f9fafb;
+  font-weight: 500;
+}
+
+.markdown-content :deep(code) {
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.markdown-content :deep(blockquote) {
+  margin: 16px 0;
+  padding: 8px 16px;
+  border-left: 4px solid #e5e7eb;
+  background-color: #f9fafb;
+  color: #4b5563;
+}
+
+.markdown-content :deep(hr) {
+  margin: 24px 0;
+  border: none;
+  border-top: 1px solid #e5e7eb;
 }
 </style> 

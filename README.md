@@ -2,6 +2,9 @@
 
 > 基于 Vue 3 和 OpenAI 的智能商业分析助手，让需求分析和文档生成变得简单高效。
 
+## 使用Demo:
+SmartBA_demo_LD.mp4
+
 ## 📋 项目概述
 
 SmartBA 是一个基于 Vue 3 和 OpenAI 的商业分析助手，它能够帮助用户：

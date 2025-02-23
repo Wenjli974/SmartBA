@@ -4,6 +4,8 @@
 
 ## 使用Demo:
 SmartBA_demo_LD.mp4
+https://github.com/user-attachments/assets/601b5577-3d71-484c-83bc-3a1423518470
+
 
 ## 📋 项目概述
 

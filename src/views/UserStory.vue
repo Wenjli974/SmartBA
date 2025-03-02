@@ -105,9 +105,10 @@
       border
       :row-style="{ height: 'auto' }"
       :cell-style="{ padding: '12px' }"
+      table-layout="auto"
     >
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="epic" label="Epic" min-width="200">
+      <el-table-column prop="id" label="ID" width="3  0" fixed="left" />
+      <el-table-column prop="epic" label="Epic" min-width="20">
         <template #default="scope">
           <el-input
             v-model="scope.row.epic"
@@ -117,7 +118,7 @@
           />
         </template>
       </el-table-column>
-      <el-table-column prop="userStory" label="User Story" min-width="250">
+      <el-table-column prop="userStory" label="User Story" min-width="220">
         <template #default="scope">
           <el-input
             v-model="scope.row.userStory"
@@ -137,7 +138,27 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="80" fixed="right">
+      <el-table-column prop="testCase" label="Test Cases" min-width="400">
+        <template #default="scope">
+          <div class="test-case-container">
+            <el-input
+              v-model="scope.row.testCase"
+              type="textarea"
+              :rows="6"
+              @change="handleDataChange"
+            />
+            <el-button
+              type="primary"
+              :icon="Cpu"
+              circle
+              class="generate-test-case-btn"
+              :loading="scope.row.generatingTestCase"
+              @click="generateTestCase(scope.row)"
+            />
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="60" fixed="right">
         <template #default="scope">
           <el-button 
             type="danger" 
@@ -159,6 +180,14 @@
         生成需求文档
       </el-button>
       <el-button 
+        type="warning"
+        :icon="Cpu"
+        :loading="generatingAllTestCases"
+        @click="generateAllTestCases"
+      >
+        批量生成测试用例
+      </el-button>
+      <el-button 
         type="success" 
         :icon="Download"
         @click="exportData"
@@ -174,13 +203,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Document, Download, Delete, Search, Cpu } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { initOpenAI, generateUserStories, checkRequirementDetails } from '../services/openai'
+import { initOpenAI, generateUserStories, checkRequirementDetails, generateTestCases } from '../services/openai'
 import * as XLSX from 'xlsx'
 
 const router = useRouter()
 const projectBackground = ref('')
 const generating = ref(false)
 const checking = ref(false)
+const generatingAllTestCases = ref(false)
 const stories = ref<any[]>([])
 const showApiKeyDialog = ref(false)
 const showCheckDialog = ref(false)
@@ -270,6 +300,55 @@ const deleteStory = (index: number) => {
   ElMessage.success('删除成功')
 }
 
+// 生成单个测试用例
+const generateTestCase = async (story: any) => {
+  if (!apiKey.value) {
+    showApiKeyDialog.value = true
+    return
+  }
+
+  story.generatingTestCase = true
+  try {
+    const testCase = await generateTestCases(story.userStory, story.ac)
+    story.testCase = testCase
+    saveToLocalStorage()
+    ElMessage.success('测试用例生成成功')
+  } catch (error) {
+    console.error('Failed to generate test case:', error)
+    ElMessage.error('测试用例生成失败，请重试')
+  } finally {
+    story.generatingTestCase = false
+  }
+}
+
+// 批量生成测试用例
+const generateAllTestCases = async () => {
+  if (!apiKey.value) {
+    showApiKeyDialog.value = true
+    return
+  }
+
+  if (stories.value.length === 0) {
+    ElMessage.warning('请先生成用户故事')
+    return
+  }
+
+  generatingAllTestCases.value = true
+  try {
+    for (const story of stories.value) {
+      if (!story.testCase) {
+        await generateTestCase(story)
+      }
+    }
+    ElMessage.success('所有测试用例生成完成')
+  } catch (error) {
+    console.error('Failed to generate all test cases:', error)
+    ElMessage.error('批量生成测试用例失败，请重试')
+  } finally {
+    generatingAllTestCases.value = false
+  }
+}
+
 // 导出数据
 const exportData = () => {
   // 准备Excel数据
@@ -277,7 +356,8 @@ const exportData = () => {
     'ID': story.id,
     'Epic': story.epic,
     'User Story': story.userStory,
-    'Acceptance Criteria': story.ac.replace(/\\n/g, '\n')  // 转换换行符
+    'Acceptance Criteria': story.ac.replace(/\\n/g, '\n'),
+    'Test Cases': story.testCase ? story.testCase.replace(/\\n/g, '\n') : ''
   }))
 
   // 创建工作簿
@@ -285,15 +365,16 @@ const exportData = () => {
   
   // 创建工作表
   const worksheet = XLSX.utils.json_to_sheet(excelData, {
-    header: ['ID', 'Epic', 'User Story', 'Acceptance Criteria']
+    header: ['ID', 'Epic', 'User Story', 'Acceptance Criteria', 'Test Cases']
   })
 
   // 设置列宽
   const columnWidths = [
     { wch: 5 },   // ID
-    { wch: 30 },  // Epic
+    { wch: 20 },  // Epic
     { wch: 40 },  // User Story
-    { wch: 60 }   // AC
+    { wch: 60 },  // AC
+    { wch: 60 }   // Test Cases
   ]
   worksheet['!cols'] = columnWidths
 
@@ -367,7 +448,7 @@ const submitRequirements = async () => {
 <style scoped>
 .user-story-container {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -427,6 +508,11 @@ h3 {
 
 :deep(.el-table) {
   margin: 20px 0;
+  width: 100% !important;
+}
+
+:deep(.el-table__inner-wrapper) {
+  min-width: 100px;
 }
 
 :deep(.el-table .el-table__cell) {
@@ -452,5 +538,38 @@ h3 {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+
+.operation-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 12px 0;
+}
+
+:deep(.el-table__cell .cell) {
+  height: 100%;
+}
+
+:deep(.el-table .cell) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+:deep(.el-table__fixed-right) {
+  height: 100% !important;
+  right: 0;
+  box-shadow: -6px 0 6px -4px rgba(0,0,0,.12);
+}
+
+:deep(.el-table__fixed-left) {
+  height: 100% !important;
+  left: 0;
+  box-shadow: 6px 0 6px -4px rgba(0,0,0,.12);
 }
 </style> 

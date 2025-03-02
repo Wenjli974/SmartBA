@@ -4,9 +4,7 @@
 
 ## 使用Demo:
 SmartBA_demo_LD.mp4
-
 https://github.com/user-attachments/assets/39fc98b1-a573-469b-a94b-f2239642d659
-
 
 ## 📋 项目概述
 
@@ -28,7 +26,7 @@ SmartBA 是一个基于 Vue 3 和 OpenAI 的商业分析助手，它能够帮助
 
 ### 2. 功能分析 (Function Analysis)
 - 📝 用户故事生成和管理
-- ✅ 验收标准自动生成
+- ✅ 验收标准及测试用例自动生成
 - 📊 表格化展示和编辑
 - 📄 需求文档一键生成
 

@@ -168,7 +168,7 @@ ${JSON.stringify(stories, null, 2)}
           content: prompt
         }
       ],
-      temperature: 0.7,
+      temperature: 0.1,
       max_tokens: 2000
     })
 
@@ -314,7 +314,7 @@ ${projectBackground}
           content: prompt
         }
       ],
-      temperature: 0.7,
+      temperature: 0.1,
       max_tokens: 2000
     })
 
@@ -479,5 +479,89 @@ ${projectBackground}
   } catch (error) {
     console.error('OpenAI API 调用失败:', error)
     throw new Error('生成分析失败，请重试')
+  }
+}
+
+export const generateTestCases = async (userStory: string, ac: string) => {
+  if (!openai) {
+    // 如果openai实例不存在，尝试初始化
+    try {
+      initOpenAI()
+    } catch (error) {
+      throw new Error('请先设置OpenAI API Key')
+    }
+  }
+
+  if (!openai) throw new Error('OpenAI初始化失败')
+
+  const prompt = `作为一个专业的测试工程师，请根据以下用户故事和验收标准生成详细的测试用例。
+
+用户故事：
+${userStory}
+
+验收标准：
+${ac}
+
+请生成测试用例，包括以下方面：
+1. 正向测试场景（Happy Path）
+2. 负向测试场景（Negative Path）
+3. 边界条件测试
+4. 异常场景测试
+
+每个测试用例应包含：
+- 测试场景描述
+- 前置条件
+- 测试步骤
+- 预期结果
+
+请使用以下格式：
+场景1：[场景描述]
+前置条件：
+- [条件1]
+- [条件2]
+测试步骤：
+1. [步骤1]
+2. [步骤2]
+预期结果：
+- [结果1]
+- [结果2]
+
+注意：
+1. 测试用例要具体且可执行
+2. 覆盖所有关键功能点
+3. 包含数据验证
+4. 考虑异常处理
+5. 回复中不要包含任何额外的解释文字，只返回测试用例`
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      messages: [
+        {
+          role: 'system',
+          content: '你是一个专业的测试工程师，擅长编写全面且详细的测试用例。'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 2000
+    })
+
+    const content = response.choices[0].message.content
+    if (!content) throw new Error('No content generated')
+
+    return content
+  } catch (apiError: any) {
+    console.error('API调用错误:', apiError)
+    if (apiError.status === 401) {
+      throw new Error('API Key无效或已过期，请检查您的API Key')
+    } else if (apiError.status === 429) {
+      throw new Error('API调用次数超限，请稍后重试')
+    } else {
+      throw new Error(`API调用失败: ${apiError.message || '未知错误'}`)
+    }
   }
 } 

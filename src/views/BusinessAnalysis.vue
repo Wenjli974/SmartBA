@@ -28,7 +28,7 @@
           v-model="form.projectBackground"
           type="textarea"
           :rows="6"
-          placeholder="请输入项目背景描述..."
+          placeholder="请输入项目背景描述，项目流程"
         />
       </el-form-item>
       <el-form-item>

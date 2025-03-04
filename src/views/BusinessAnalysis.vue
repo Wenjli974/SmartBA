@@ -91,86 +91,66 @@
       </template>
     </el-dialog>
 
-    <!-- 添加loading遮罩 -->
-    <div v-if="loading" class="loading-overlay" role="alert" aria-busy="true">
-      <el-icon class="loading-spinner" :size="32">
-        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-          <path fill="currentColor" d="M512 64a32 32 0 0 1 32 32v192a32 32 0 0 1-64 0V96a32 32 0 0 1 32-32zm0 640a32 32 0 0 1 32 32v192a32 32 0 1 1-64 0V736a32 32 0 0 1 32-32zm448-192a32 32 0 0 1-32 32H736a32 32 0 1 1 0-64h192a32 32 0 0 1 32 32zm-640 0a32 32 0 0 1-32 32H96a32 32 0 0 1 0-64h192a32 32 0 0 1 32 32zM195.2 195.2a32 32 0 0 1 45.248 0L376.32 331.008a32 32 0 0 1-45.248 45.248L195.2 240.448a32 32 0 0 1 0-45.248zm452.544 452.544a32 32 0 0 1 45.248 0L828.8 783.552a32 32 0 0 1-45.248 45.248L647.744 692.992a32 32 0 0 1 0-45.248zM828.8 195.264a32 32 0 0 1 0 45.184L692.992 376.32a32 32 0 0 1-45.248-45.248l135.808-135.808a32 32 0 0 1 45.248 0zm-452.544 452.48a32 32 0 0 1 0 45.248L240.448 828.8a32 32 0 0 1-45.248-45.248l135.808-135.808a32 32 0 0 1 45.248 0z"/>
-        </svg>
-      </el-icon>
-    </div>
-
-    <!-- 现有内容添加过渡效果 -->
+    <!-- 分析报告展示区域 -->
     <transition name="fade">
-      <div v-if="!loading">
-        <!-- 生成的文档 -->
-        <div v-if="generatedDoc" class="generated-doc">
-          <div class="doc-header">
-            <h3>业务需求文档</h3>
-            <el-button type="primary" @click="handleExport">导出Word</el-button>
+      <div v-if="!loading && generatedDoc">
+        <el-card class="analysis-result">
+          <div class="toolbar">
+            <el-switch
+              v-model="isEditing"
+              active-text="编辑模式"
+              inactive-text="预览模式"
+            />
+            <el-button type="success" @click="exportMarkdown">
+              <el-icon><Download /></el-icon>
+              导出 Markdown
+            </el-button>
           </div>
-          
-          <el-tabs v-model="activeTab" class="doc-content">
-            <el-tab-pane label="文档编辑" name="edit">
-              <div class="doc-sections">
-                <div v-for="(section, key) in generatedDoc" :key="key" class="doc-section">
-                  <h4>{{ getSectionTitle(key) }}</h4>
-                  <el-input
-                    v-if="key !== 'businessProcess'"
-                    v-model="generatedDoc[key]"
-                    type="textarea"
-                    :rows="getRowsForSection(key)"
-                    @input="handleDocChange"
-                  />
-                  <template v-else>
-                    <el-input
-                      v-model="generatedDoc.businessProcess.text"
-                      type="textarea"
-                      :rows="4"
-                      @input="handleDocChange"
-                    />
-                    <el-input
-                      v-model="generatedDoc.businessProcess.mermaid"
-                      type="textarea"
-                      :rows="6"
-                      @input="handleDocChange"
-                    />
-                    <div class="mermaid-preview" ref="mermaidContainer"></div>
-                  </template>
-                </div>
-              </div>
-            </el-tab-pane>
-            <el-tab-pane label="预览" name="preview">
-              <div class="preview-content">
-                <!-- 预览内容将在这里动态生成 -->
-              </div>
-            </el-tab-pane>
-          </el-tabs>
-        </div>
+
+          <!-- 编辑模式 -->
+          <div v-if="isEditing" class="editor-container">
+            <el-input
+              v-model="generatedDoc.content"
+              type="textarea"
+              :rows="20"
+              @change="handleContentChange"
+            />
+          </div>
+
+          <!-- 预览模式 -->
+          <div v-else class="preview-wrapper">
+            <div class="preview-container">
+              <div class="markdown-body" v-html="renderedContent"></div>
+            </div>
+          </div>
+        </el-card>
       </div>
     </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { checkRequirementDetails, generateUseCaseAnalysis, initOpenAI } from '../services/openai'
-import mermaid from 'mermaid'
-import { saveAs } from 'file-saver'
-import { Document, Packer, Paragraph, TextRun } from 'docx'
 import { ElMessage } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
+import MarkdownIt from 'markdown-it'
+import 'github-markdown-css/github-markdown.css'
 
-// 初始化 mermaid
-mermaid.initialize({ startOnLoad: true })
+// 初始化 MarkdownIt
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+  breaks: true
+})
 
 const form = reactive({
   projectBackground: ''
 })
 
 const checkResults = ref<string[]>([])
-const activeTab = ref('edit')
-const generatedDoc = ref<any>(null)
-const mermaidContainer = ref<HTMLElement | null>(null)
+const generatedDoc = ref<{ content: string } | null>(null)
 const checking = ref(false)
 const generating = ref(false)
 const showApiKeyDialog = ref(false)
@@ -181,39 +161,13 @@ const checkQuestions = ref<string[]>([])
 const additionalInfo = ref('')
 const questionAnswers = ref<string[]>([])
 const loading = ref(false)
+const isEditing = ref(false)
 
-// 文档节点标题映射
-const sectionTitles = {
-  projectName: '项目名称',
-  projectGoal: '项目目标',
-  projectBackground: '项目背景',
-  projectScope: '项目范围',
-  roles: '角色定义',
-  businessProcess: '业务流程',
-  businessRules: '业务规则',
-  performanceRequirements: '性能要求',
-  dataRequirements: '数据要求'
-}
-
-// 获取节点标题
-const getSectionTitle = (key: string) => {
-  return sectionTitles[key as keyof typeof sectionTitles] || key
-}
-
-// 获取文本框行数
-const getRowsForSection = (key: string) => {
-  const rowsMap: Record<string, number> = {
-    projectName: 1,
-    projectGoal: 3,
-    projectBackground: 6,
-    projectScope: 4,
-    roles: 4,
-    businessRules: 6,
-    performanceRequirements: 4,
-    dataRequirements: 4
-  }
-  return rowsMap[key] || 4
-}
+// 渲染 Markdown 内容
+const renderedContent = computed(() => {
+  if (!generatedDoc.value?.content) return ''
+  return md.render(generatedDoc.value.content)
+})
 
 // API Key相关功能
 const saveApiKey = () => {
@@ -244,7 +198,6 @@ const handleCheck = async () => {
     originalRequirement.value = form.projectBackground
     const result = await checkRequirementDetails(form.projectBackground)
     checkQuestions.value = result
-    // 初始化答案数组
     questionAnswers.value = new Array(result.length).fill('')
     showCheckDialog.value = true
   } catch (error: any) {
@@ -260,7 +213,6 @@ const handleCheck = async () => {
 
 // 提交需求并生成用例分析
 const submitRequirements = async () => {
-  // 构建补充信息文本
   const answersText = checkQuestions.value
     .map((question, index) => `问题${index + 1}：${question}\n回答：${questionAnswers.value[index] || '未回答'}\n`)
     .join('\n')
@@ -295,93 +247,27 @@ const handleGenerate = async () => {
   }
 }
 
-// 处理文档变化
-const handleDocChange = () => {
+// 处理内容变化
+const handleContentChange = () => {
   localStorage.setItem('businessAnalysisDoc', JSON.stringify(generatedDoc.value))
-  if (generatedDoc.value?.businessProcess?.mermaid) {
-    renderMermaid()
-  }
 }
 
-// 渲染 Mermaid 图表
-const renderMermaid = async () => {
-  if (!mermaidContainer.value) return
-  
-  try {
-    mermaidContainer.value.innerHTML = ''
-    await mermaid.render(
-      'mermaid-graph',
-      generatedDoc.value.businessProcess.mermaid,
-      (svgCode) => {
-        if (mermaidContainer.value) {
-          mermaidContainer.value.innerHTML = svgCode
-        }
-      }
-    )
-  } catch (error) {
-    console.error('Mermaid rendering error:', error)
+// 导出 Markdown 文件
+const exportMarkdown = () => {
+  if (!generatedDoc.value?.content) {
+    ElMessage.warning('没有可导出的内容')
+    return
   }
-}
 
-// 导出 Word 文档
-const handleExport = async () => {
-  try {
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: [
-          new Paragraph({
-            children: [new TextRun({ text: '业务需求文档', bold: true, size: 32 })],
-            spacing: { after: 400 }
-          }),
-          ...Object.entries(generatedDoc.value).map(([key, value]) => {
-            if (key === 'businessProcess') {
-              return [
-                new Paragraph({
-                  children: [new TextRun({ text: getSectionTitle(key), bold: true, size: 24 })],
-                  spacing: { before: 400, after: 200 }
-                }),
-                new Paragraph({
-                  children: [new TextRun({ text: '流程描述：', bold: true })],
-                  spacing: { before: 200 }
-                }),
-                new Paragraph({
-                  children: [new TextRun({ text: (value as any).text })],
-                  spacing: { after: 200 }
-                }),
-                new Paragraph({
-                  children: [new TextRun({ text: '流程图：', bold: true })],
-                  spacing: { before: 200 }
-                }),
-                new Paragraph({
-                  children: [new TextRun({ text: (value as any).mermaid })],
-                  spacing: { after: 400 }
-                })
-              ]
-            } else {
-              return [
-                new Paragraph({
-                  children: [new TextRun({ text: getSectionTitle(key), bold: true, size: 24 })],
-                  spacing: { before: 400, after: 200 }
-                }),
-                new Paragraph({
-                  children: [new TextRun({ text: value as string })],
-                  spacing: { after: 400 }
-                })
-              ]
-            }
-          }).flat()
-        ]
-      }]
-    })
-
-    const blob = await Packer.toBlob(doc)
-    saveAs(blob, '业务需求文档.docx')
-    ElMessage.success('导出成功')
-  } catch (error) {
-    console.error('Export error:', error)
-    ElMessage.error('导出失败')
-  }
+  const blob = new Blob([generatedDoc.value.content], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `用例分析报告-${new Date().toISOString().split('T')[0]}.md`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 // 组件挂载时
@@ -407,129 +293,214 @@ onMounted(() => {
     }
   }
 })
-
-// 监听文档变化
-watch(
-  () => generatedDoc.value?.businessProcess?.mermaid,
-  () => {
-    if (generatedDoc.value?.businessProcess?.mermaid) {
-      renderMermaid()
-    }
-  }
-)
-
-// 修改现有的方法，添加loading状态
-const handleAnalyze = async () => {
-  try {
-    loading.value = true
-    // ... existing analysis logic ...
-  } finally {
-    loading.value = false
-  }
-}
 </script>
 
-<style scoped>
+<style>
+/* 重置Element Plus的样式 */
+:deep(.el-card) {
+  overflow: visible;
+}
+
+:deep(.el-card__body) {
+  padding: 0 !important;
+}
+
+/* 基础布局 */
 .business-analysis {
   padding: 20px;
+  width: 100%;
+  max-width: none;
 }
 
-.check-result-container {
-  padding: 20px;
-}
-
-.check-questions {
-  margin: 15px 0;
-}
-
-.question-item {
-  margin: 15px 0;
-  padding: 15px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-}
-
-.question-text {
-  margin-bottom: 10px;
-  font-weight: 500;
-  color: #303133;
-}
-
-.generated-doc {
+.analysis-result {
   margin-top: 20px;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  width: 100% !important;
+  max-width: none !important;
 }
 
-.doc-header {
+/* 预览容器 */
+.preview-wrapper {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.preview-container {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Markdown 样式重置 */
+:deep(.markdown-body) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 20px !important;
+  text-align: left !important;
+  box-sizing: border-box !important;
+}
+
+:deep(.markdown-body > *) {
+  text-align: left !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  max-width: none !important;
+}
+
+/* 标题样式 */
+:deep(.markdown-body h1),
+:deep(.markdown-body h2),
+:deep(.markdown-body h3),
+:deep(.markdown-body h4),
+:deep(.markdown-body h5),
+:deep(.markdown-body h6) {
+  width: 100% !important;
+  margin: 24px 0 16px 0 !important;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left !important;
+}
+
+:deep(.markdown-body h1) {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #eaecef;
+}
+
+:deep(.markdown-body h2) {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #eaecef;
+}
+
+:deep(.markdown-body h3) {
+  font-size: 1.25em;
+}
+
+:deep(.markdown-body h4) {
+  font-size: 1em;
+}
+
+/* 段落样式 */
+:deep(.markdown-body p) {
+  width: 100% !important;
+  margin: 0 0 16px 0 !important;
+  text-align: left !important;
+}
+
+/* 列表样式 */
+:deep(.markdown-body ul),
+:deep(.markdown-body ol) {
+  width: 100% !important;
+  margin: 0 0 16px 0 !important;
+  padding-left: 2em !important;
+  text-align: left !important;
+}
+
+:deep(.markdown-body li) {
+  text-align: left !important;
+  margin: 0.25em 0 !important;
+}
+
+/* 代码块样式 */
+:deep(.markdown-body pre) {
+  width: 100% !important;
+  margin: 0 0 16px 0 !important;
+  padding: 16px !important;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  text-align: left !important;
+}
+
+:deep(.markdown-body code) {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: rgba(27,31,35,0.05);
+  border-radius: 3px;
+  text-align: left !important;
+}
+
+/* 引用块样式 */
+:deep(.markdown-body blockquote) {
+  width: 100% !important;
+  margin: 0 0 16px 0 !important;
+  padding: 0 1em !important;
+  color: #6a737d;
+  border-left: 0.25em solid #dfe2e5;
+  text-align: left !important;
+}
+
+/* 表格样式 */
+:deep(.markdown-body table) {
+  width: 100% !important;
+  margin: 0 0 16px 0 !important;
+  border-spacing: 0;
+  border-collapse: collapse;
+  text-align: left !important;
+}
+
+:deep(.markdown-body table th),
+:deep(.markdown-body table td) {
+  padding: 6px 13px;
+  border: 1px solid #dfe2e5;
+  text-align: left !important;
+}
+
+:deep(.markdown-body table th) {
+  font-weight: 600;
+  background-color: #f6f8fa;
+}
+
+:deep(.markdown-body table tr) {
+  background-color: #fff;
+  border-top: 1px solid #c6cbd1;
+}
+
+:deep(.markdown-body table tr:nth-child(2n)) {
+  background-color: #f6f8fa;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .business-analysis {
+    padding: 15px;
+  }
+  
+  :deep(.markdown-body) {
+    padding: 15px !important;
+    font-size: 14px;
+  }
+}
+
+/* 工具栏样式 */
+.toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-}
-
-.doc-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.doc-section {
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 8px;
-}
-
-.doc-section h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  color: #333;
-}
-
-.mermaid-preview {
-  margin-top: 15px;
-  padding: 15px;
-  background: white;
-  border: 1px solid #ddd;
+  padding: 10px;
+  background-color: #f5f7fa;
   border-radius: 4px;
+  width: 100%;
 }
 
-h3 {
-  margin: 15px 0 10px 0;
-  color: #606266;
+/* 编辑器容器 */
+.editor-container {
+  margin-top: 20px;
+  width: 100%;
 }
 
-:deep(.el-textarea__inner) {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  line-height: 1.6;
-}
-
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 100;
-}
-
-.loading-spinner {
-  animation: spin 1s linear infinite;
-  color: var(--primary-color);
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* 内容过渡动画 */
+/* 过渡动画 */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;
@@ -538,12 +509,5 @@ h3 {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .business-analysis {
-    padding: 15px;
-  }
 }
 </style> 

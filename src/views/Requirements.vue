@@ -151,6 +151,7 @@ const exportDocument = () => {
   color: #1f2937;
   border-bottom: 1px solid #e5e7eb;
   padding-bottom: 8px;
+  text-align: left;
 }
 
 .markdown-content :deep(h2) {
@@ -158,6 +159,7 @@ const exportDocument = () => {
   font-size: 24px;
   font-weight: 600;
   color: #1f2937;
+  text-align: left;
 }
 
 .markdown-content :deep(h3) {
@@ -165,6 +167,7 @@ const exportDocument = () => {
   font-size: 20px;
   font-weight: 500;
   color: #374151;
+  text-align: left;
 }
 
 .markdown-content :deep(p) {
@@ -177,11 +180,13 @@ const exportDocument = () => {
 .markdown-content :deep(ol) {
   padding-left: 24px;
   margin: 12px 0;
+  text-align: left;
 }
 
 .markdown-content :deep(li) {
   margin: 8px 0;
   line-height: 1.6;
+  text-align: left;
 }
 
 .markdown-content :deep(table) {
@@ -195,6 +200,7 @@ const exportDocument = () => {
 .markdown-content :deep(td) {
   padding: 12px;
   border: 1px solid #e5e7eb;
+  text-align: left;
 }
 
 .markdown-content :deep(th) {
@@ -208,6 +214,7 @@ const exportDocument = () => {
   border-radius: 4px;
   font-family: ui-monospace, monospace;
   font-size: 0.9em;
+  text-align: left;
 }
 
 .markdown-content :deep(blockquote) {
@@ -216,6 +223,7 @@ const exportDocument = () => {
   border-left: 4px solid #e5e7eb;
   background-color: #f9fafb;
   color: #4b5563;
+  text-align: left;
 }
 
 .markdown-content :deep(hr) {

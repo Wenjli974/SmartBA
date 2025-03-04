@@ -189,6 +189,9 @@ const exportMarkdown = () => {
 .markdown-body ul,
 .markdown-body ol {
   text-align: left;
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
 }
 
 .markdown-body pre {
@@ -196,12 +199,38 @@ const exportMarkdown = () => {
   border-radius: 6px;
   padding: 16px;
   text-align: left;
+  width: 100%;
+  margin: 0 0 16px 0;
+  overflow: auto;
 }
 
 .markdown-body code {
   background-color: rgba(175, 184, 193, 0.2);
   border-radius: 6px;
   padding: 0.2em 0.4em;
+  text-align: left;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  text-align: left;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.markdown-body blockquote {
+  margin: 16px 0;
+  padding: 0 1em;
+  color: #6a737d;
+  border-left: 0.25em solid #dfe2e5;
+  text-align: left;
 }
 
 /* 编辑器样式调整 */

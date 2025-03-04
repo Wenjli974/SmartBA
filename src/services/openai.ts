@@ -41,9 +41,11 @@ Happy Path, Negative Path 和Exceptional Path 的角度完善出对应的Accepta
 项目背景：
 ${projectBackground}
  
-请针对这个项目按照示例和你的专业知识，拆分一下该项目中会出现的user story （按照作为<role>, 我能够完成<Task>的格式）
-完善出该user story对应描述（需求，功能，业务流程），给出该story的Acceptance criteria(AC, 按照: Given-When-Then的结构)
-并预估该story的开发人天
+请针对这个项目按照示例和你的专业知识，
+1. Epic: 定义该项目中设计的Epic 
+2. Story: 请拆分一下每个Epic中会出现的user story（按照作为<role>, 我能够完成<Task>的格式），注意拆分story要考虑业务流程和操作的先后顺序；
+3. ACs: 请完善出每个user story对应描述（需求，功能，业务流程）并给出该story的Acceptance criteria，注意AC中要考虑正常情况和异常情况及提供相应处理。
+
 
 返回格式：请严格按照以下JSON格式返回10个用户故事：
 [
@@ -51,7 +53,7 @@ ${projectBackground}
     "id": "<id>",
     "epic": "<epic>",
     "userStory": "<Story>",
-    "ac": "<Description><Effort><Acceptance Criteria>"
+    "ac": "<Description><Acceptance Criteria>"
   }
 ]
 
@@ -60,7 +62,7 @@ ${projectBackground}
 2. 必须是一个数组
 3. 每个对象必须包含epic、userStory和ac三个字段
 4. ac字段中的换行使用\\n
-5. 不要添加任何额外的解释文字，只返回JSON数组`
+5. 回答使用中文，不要添加任何额外的解释文字，只返回JSON数组`
 
   try {
     const response = await openai.chat.completions.create({
@@ -75,7 +77,7 @@ ${projectBackground}
           content: prompt
         }
       ],
-      temperature: 0.7,
+      temperature: 0.1,
       max_tokens: 2000
     })
 
@@ -274,32 +276,45 @@ export const generateUseCaseAnalysis = async (projectBackground: string) => {
   if (!openai) throw new Error('OpenAI初始化失败')
 
   const prompt = `
-作为一个专业的业务分析师，请根据以下项目背景展开分析，并生成一个完整详细的用例分析文档。
+作为一个专业的业务分析师，你擅长根据项目背景识别商业机会并形成商业分析报告。
+请根据以下项目背景展开分析，并生成一个完整详细的用例分析文档。
 
 项目背景：
 ${projectBackground}
 
-请生成一个包含以下部分的结构化文档（JSON格式）：
-{
-  "projectName": "项目名称",
-  "projectGoal": "项目目标",
-  "projectBackground": "项目背景",
-  "projectScope": "项目范围",
-  "roles": "角色定义",
-  "businessProcess": {
-    "text": "业务流程描述",
-    "mermaid": "流程图（使用Mermaid语法）"
-  },
-  "businessRules": "业务规则",
-  "performanceRequirements": "性能要求",
-  "dataRequirements": "数据要求"
-}
+请按照以下Markdown格式返回分析结果：
+
+# 用例分析报告
+
+## 1. 项目介绍
+- 项目名称
+- 项目目标
+- 项目背景
+- 项目范围
+
+## 2. Persona分析
+[详细描述项目中所涉及的所有角色Persona（如用户，管理员等）及其场景，期望，痛点和需求，请你分析尽可能多的细节]
+
+## 3. 用户旅程分析
+[详细描述不同用户角色的用户旅程，请拓展和分析尽可能多的细节，请以表格的方式呈现，横向每列为用户旅程的不同阶段，纵向每行分别为该阶段下用户的行为，需求，痛点和机会点等]
+
+## 4. 业务流程
+### 4.1 流程描述
+[详细的业务流程描述]
+
+## 5. 业务规则
+[详细的业务规则描述]
+
+## 6. 性能要求
+[系统性能要求描述]
+
+## 7. 数据要求
+[数据需求和规范描述]
 
 注意事项：
-1. 返回必须是合法的JSON格式
-2. businessProcess.mermaid 字段必须是有效的Mermaid流程图语法
-3. 所有文本字段中的换行使用\\n
-4. 不要添加任何额外的解释文字，只返回JSON对象`
+1. 所有内容必须详细且专业
+2. 使用Markdown语法确保格式清晰
+`
 
   try {
     const response = await openai.chat.completions.create({
@@ -307,7 +322,7 @@ ${projectBackground}
       messages: [
         {
           role: 'system',
-          content: '你是一个专业的业务分析师，擅长生成结构化的业务分析文档。请确保返回的是合法的JSON格式。'
+          content: '你是一个专业的业务分析师，擅长生成结构化的业务分析文档。'
         },
         {
           role: 'user',
@@ -315,48 +330,13 @@ ${projectBackground}
         }
       ],
       temperature: 0.1,
-      max_tokens: 2000
+      max_tokens: 2500
     })
 
     const content = response.choices[0].message.content
     if (!content) throw new Error('No content generated')
-
-    try {
-      // 清理可能的多余内容
-      const jsonContent = content.trim().replace(/```json\n?|\n?```/g, '').trim()
-      const parsedContent = JSON.parse(jsonContent)
-
-      // 验证返回的数据格式
-      const requiredFields = [
-        'projectName',
-        'projectGoal',
-        'projectBackground',
-        'projectScope',
-        'roles',
-        'businessProcess',
-        'businessRules',
-        'performanceRequirements',
-        'dataRequirements'
-      ]
-
-      const missingFields = requiredFields.filter(field => !(field in parsedContent))
-      if (missingFields.length > 0) {
-        throw new Error(`Missing required fields: ${missingFields.join(', ')}`)
-      }
-
-      // 验证 businessProcess 结构
-      if (typeof parsedContent.businessProcess !== 'object' ||
-          !('text' in parsedContent.businessProcess) ||
-          !('mermaid' in parsedContent.businessProcess)) {
-        throw new Error('Invalid businessProcess structure')
-      }
-
-      return parsedContent
-    } catch (parseError) {
-      console.error('API返回的原始内容:', content)
-      console.error('解析错误:', parseError)
-      throw new Error('API返回的格式不正确，请重试')
-    }
+    
+    return { content }
   } catch (apiError: any) {
     console.error('API调用错误:', apiError)
     if (apiError.status === 401) {
@@ -395,10 +375,10 @@ ${projectBackground}
 [详细的配色方案建议，包括主色调、辅助色等]
 
 ### 1.3 关键组件设计
-[描述主要界面组件的设计建议]
+[详细描述主要界面组件的设计建议]
 
 ### 1.4 响应式设计考虑
-[不同设备和屏幕尺寸的适配建议]
+[提供不同设备和屏幕尺寸的适配建议]
 
 ### 1.5 字体和图标选择
 [字体系统和图标设计建议]
@@ -406,32 +386,21 @@ ${projectBackground}
 ## 2. 用户体验分析
 
 ### 2.1 用户旅程地图
-[详细的用户旅程分析]
+[详细的用户旅程分析及操作流程描述]
 
 ### 2.2 关键交互点
-[重要交互节点的设计建议]
+[提供详细的重要交互节点的设计建议]
 
-### 2.3 可用性考虑
-[可用性设计建议和最佳实践]
+### 2.3 状态转换
+[提供界面状态转换及不同状态的详细设计]
 
-### 2.4 无障碍设计
-[无障碍设计的具体建议]
-
-### 2.5 性能优化
+### 2.3 性能优化
 [性能优化的建议和措施]
 
-## 3. 交互流程设计
-
-### 3.1 用户操作流程
-[主要用户操作流程的详细描述]
-
-### 3.2 状态转换
-[界面状态转换的设计]
-
-### 3.3 反馈机制
+### 2.4 反馈机制
 [用户操作反馈的设计建议]
 
-### 3.4 错误处理
+### 2.5 错误处理
 [错误状态的处理方案]
 
 ### 3.5 帮助和提示
@@ -440,7 +409,7 @@ ${projectBackground}
 ## 4. 原型图
 
 \`\`\`
-[使用ASCII艺术创建关键页面的线框图]
+[请使用markdown语法绘制关键页面的线框图！]
 \`\`\`
 
 注意事项：
@@ -452,7 +421,7 @@ ${projectBackground}
     const response = await axios.post(
       API_ENDPOINT,
       {
-        model: 'gpt-4-turbo-preview',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -463,7 +432,7 @@ ${projectBackground}
             content: prompt
           }
         ],
-        temperature: 0.7,
+        temperature: 0.1,
         max_tokens: 2000
       },
       {

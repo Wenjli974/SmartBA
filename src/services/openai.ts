@@ -44,8 +44,14 @@ ${projectBackground}
 请针对这个项目按照示例和你的专业知识，
 1. Epic: 定义该项目中设计的Epic 
 2. Story: 请拆分一下每个Epic中会出现的user story（按照作为<role>, 我能够完成<Task>的格式），注意拆分story要考虑业务流程和操作的先后顺序；
-3. ACs: 请完善出每个user story对应描述（需求，功能，业务流程）并给出该story的Acceptance criteria，注意AC中要考虑正常情况和异常情况及提供相应处理。
+3. ACs: 请完善出每个user story对应描述（需求，功能，业务流程）并给出该story的Acceptance criteria，
+重点重点：注意AC需要非常具体,需求各项细节设计，性能要求，交互效果要求，数据接口及处理，异常情况及处理，需要列出具体明细。如果有你不确定的内容可以提出来然后标记check。
 
+完整的内容可以参考下面的示例：
+Epic:服务质检功能
+Story:作为门店员工, 我能够在Mobile端质检时可根据服务项检测项标准进行拍照
+AC:需求：门店员工在质检时可根据服务项检测项标准进行拍照；需求细节：新增字段‘检测标准’ ,服务项对应的每个检测项都需单独一行展示 新增入口‘示例图片’ 若有示例图片，入口才置亮，否则不显示 点击后展示图片页面，可关闭返回 点击‘保存’/‘质检完成’时需校验上传图片是否满足最小上传数量  
+需check内容：字段内容拼写规则是什么？比如检测项描述+最小上传数量，例如：刹车片更换照片(2张) 
 
 返回格式：请严格按照以下JSON格式返回10个用户故事：
 [
@@ -53,7 +59,7 @@ ${projectBackground}
     "id": "<id>",
     "epic": "<epic>",
     "userStory": "<Story>",
-    "ac": "<Description><Acceptance Criteria>"
+    "ac": "<Description><Acceptance Criteria><Check>"
   }
 ]
 
@@ -78,7 +84,7 @@ ${projectBackground}
         }
       ],
       temperature: 0.1,
-      max_tokens: 2000
+      max_tokens: 3000
     })
 
     const content = response.choices[0].message.content
@@ -300,7 +306,7 @@ ${projectBackground}
 
 ## 4. 业务流程
 ### 4.1 流程描述
-[详细的业务流程描述]
+[详细的业务流程描述并绘制详实的流程图]
 
 ## 5. 业务规则
 [详细的业务规则描述]
@@ -415,7 +421,8 @@ ${projectBackground}
 注意事项：
 1. 所有内容应该详细且专业
 2. 使用Markdown语法确保格式清晰
-3. 确保建议足够具体，可以直接提供给UI设计师制作高保真原型`
+3. 确保建议足够具体，可以直接提供给UI设计师制作高保真原型
+4. 回复语言使用中文`
 
   try {
     const response = await axios.post(

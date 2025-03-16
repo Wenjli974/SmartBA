@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import { generateUIUXAnalysis } from '@/services/openai'
@@ -71,6 +71,14 @@ const isGenerating = ref(false)
 const isEditing = ref(false)
 const analysisResult = ref<{ content: string } | null>(null)
 
+// 保存数据到localStorage
+const saveToLocalStorage = () => {
+  localStorage.setItem('uiuxExpertData', JSON.stringify({
+    projectBackground: projectBackground.value,
+    analysisResult: analysisResult.value
+  }))
+}
+
 // 生成分析报告
 const generateAnalysis = async () => {
   if (!projectBackground.value.trim()) {
@@ -82,6 +90,7 @@ const generateAnalysis = async () => {
   try {
     const result = await generateUIUXAnalysis(projectBackground.value)
     analysisResult.value = result
+    saveToLocalStorage() // 保存生成的结果
     ElMessage.success('分析报告生成成功')
   } catch (error) {
     ElMessage.error('生成分析报告失败，请重试')
@@ -98,8 +107,27 @@ const renderedContent = computed(() => {
 
 // 处理内容变化
 const handleContentChange = () => {
-  // 这里可以添加自动保存逻辑
+  saveToLocalStorage() // 保存编辑的内容
 }
+
+// 监听项目背景变化
+watch(projectBackground, () => {
+  saveToLocalStorage()
+})
+
+// 组件挂载时加载缓存数据
+onMounted(() => {
+  const savedData = localStorage.getItem('uiuxExpertData')
+  if (savedData) {
+    try {
+      const { projectBackground: savedBackground, analysisResult: savedResult } = JSON.parse(savedData)
+      projectBackground.value = savedBackground || ''
+      analysisResult.value = savedResult || null
+    } catch (error) {
+      console.error('Error loading cached data:', error)
+    }
+  }
+})
 
 // 导出 Markdown 文件
 const exportMarkdown = () => {

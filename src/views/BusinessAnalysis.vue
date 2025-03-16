@@ -93,8 +93,8 @@
 
     <!-- 分析报告展示区域 -->
     <transition name="fade">
-      <div v-if="!loading && generatedDoc">
-        <el-card class="analysis-result">
+      <div v-if="!loading && generatedDoc" class="analysis-result">
+        <el-card>
           <div class="toolbar">
             <el-switch
               v-model="isEditing"
@@ -118,10 +118,8 @@
           </div>
 
           <!-- 预览模式 -->
-          <div v-else class="preview-wrapper">
-            <div class="preview-container">
-              <div class="markdown-body" v-html="renderedContent"></div>
-            </div>
+          <div v-else class="markdown-preview">
+            <div class="markdown-body" v-html="renderedContent"></div>
           </div>
         </el-card>
       </div>
@@ -142,7 +140,9 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-  breaks: true
+  breaks: true,
+  quotes: '""',
+  langPrefix: 'language-'
 })
 
 const form = reactive({
@@ -163,10 +163,77 @@ const questionAnswers = ref<string[]>([])
 const loading = ref(false)
 const isEditing = ref(false)
 
+// 保存数据到localStorage
+const saveToLocalStorage = () => {
+  localStorage.setItem('businessAnalysisData', JSON.stringify({
+    projectBackground: form.projectBackground,
+    generatedDoc: generatedDoc.value,
+    checkQuestions: checkQuestions.value,
+    questionAnswers: questionAnswers.value,
+    additionalInfo: additionalInfo.value,
+    originalRequirement: originalRequirement.value
+  }))
+}
+
 // 渲染 Markdown 内容
 const renderedContent = computed(() => {
   if (!generatedDoc.value?.content) return ''
-  return md.render(generatedDoc.value.content)
+  try {
+    const rendered = md.render(generatedDoc.value.content)
+    console.log('Rendered content:', rendered)
+    return rendered
+  } catch (error) {
+    console.error('Markdown rendering error:', error)
+    return ''
+  }
+})
+
+// 监听表单变化
+watch(() => form.projectBackground, () => {
+  saveToLocalStorage()
+})
+
+// 监听其他数据变化
+watch([checkQuestions, questionAnswers, additionalInfo, originalRequirement], () => {
+  saveToLocalStorage()
+})
+
+// 组件挂载时加载缓存数据
+onMounted(() => {
+  // 尝试恢复保存的文档
+  const savedData = localStorage.getItem('businessAnalysisData')
+  if (savedData) {
+    try {
+      const {
+        projectBackground,
+        generatedDoc: savedDoc,
+        checkQuestions: savedQuestions,
+        questionAnswers: savedAnswers,
+        additionalInfo: savedInfo,
+        originalRequirement: savedRequirement
+      } = JSON.parse(savedData)
+      
+      form.projectBackground = projectBackground || ''
+      generatedDoc.value = savedDoc || null
+      checkQuestions.value = savedQuestions || []
+      questionAnswers.value = savedAnswers || []
+      additionalInfo.value = savedInfo || ''
+      originalRequirement.value = savedRequirement || ''
+    } catch (error) {
+      console.error('Error loading cached data:', error)
+    }
+  }
+
+  // 尝试初始化 OpenAI
+  const savedApiKey = localStorage.getItem('openai_api_key')
+  if (savedApiKey) {
+    apiKey.value = savedApiKey
+    try {
+      initOpenAI(savedApiKey)
+    } catch (error) {
+      showApiKeyDialog.value = true
+    }
+  }
 })
 
 // API Key相关功能
@@ -200,6 +267,7 @@ const handleCheck = async () => {
     checkQuestions.value = result
     questionAnswers.value = new Array(result.length).fill('')
     showCheckDialog.value = true
+    saveToLocalStorage() // 保存检查结果
   } catch (error: any) {
     if (error.message.includes('API Key')) {
       showApiKeyDialog.value = true
@@ -221,6 +289,7 @@ const submitRequirements = async () => {
   
   form.projectBackground = completeRequirement
   showCheckDialog.value = false
+  saveToLocalStorage() // 保存提交的需求
   handleGenerate()
 }
 
@@ -235,6 +304,7 @@ const handleGenerate = async () => {
   try {
     const result = await generateUseCaseAnalysis(form.projectBackground)
     generatedDoc.value = result
+    saveToLocalStorage() // 保存生成的文档
     ElMessage.success('生成成功')
   } catch (error: any) {
     if (error.message.includes('API Key')) {
@@ -249,7 +319,7 @@ const handleGenerate = async () => {
 
 // 处理内容变化
 const handleContentChange = () => {
-  localStorage.setItem('businessAnalysisDoc', JSON.stringify(generatedDoc.value))
+  saveToLocalStorage() // 保存内容变化
 }
 
 // 导出 Markdown 文件
@@ -269,40 +339,17 @@ const exportMarkdown = () => {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
-
-// 组件挂载时
-onMounted(() => {
-  // 尝试恢复保存的文档
-  const savedDoc = localStorage.getItem('businessAnalysisDoc')
-  if (savedDoc) {
-    try {
-      generatedDoc.value = JSON.parse(savedDoc)
-    } catch (error) {
-      console.error('Error restoring saved document:', error)
-    }
-  }
-
-  // 尝试初始化 OpenAI
-  const savedApiKey = localStorage.getItem('openai_api_key')
-  if (savedApiKey) {
-    apiKey.value = savedApiKey
-    try {
-      initOpenAI(savedApiKey)
-    } catch (error) {
-      showApiKeyDialog.value = true
-    }
-  }
-})
 </script>
 
 <style>
 /* 重置Element Plus的样式 */
-:deep(.el-card) {
-  overflow: visible;
+.el-card {
+  margin: 0 !important;
+  overflow: visible !important;
 }
 
-:deep(.el-card__body) {
-  padding: 0 !important;
+.el-card__body {
+  padding: 20px !important;
 }
 
 /* 基础布局 */
@@ -314,172 +361,41 @@ onMounted(() => {
 
 .analysis-result {
   margin-top: 20px;
-  width: 100% !important;
-  max-width: none !important;
 }
 
-/* 预览容器 */
-.preview-wrapper {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.preview-container {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background-color: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Markdown 样式重置 */
-:deep(.markdown-body) {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 20px !important;
-  text-align: left !important;
-  box-sizing: border-box !important;
-}
-
-:deep(.markdown-body > *) {
-  text-align: left !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  max-width: none !important;
-}
-
-/* 标题样式 */
-:deep(.markdown-body h1),
-:deep(.markdown-body h2),
-:deep(.markdown-body h3),
-:deep(.markdown-body h4),
-:deep(.markdown-body h5),
-:deep(.markdown-body h6) {
-  width: 100% !important;
-  margin: 24px 0 16px 0 !important;
-  font-weight: 600;
-  line-height: 1.25;
-  text-align: left !important;
-}
-
-:deep(.markdown-body h1) {
-  font-size: 2em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid #eaecef;
-}
-
-:deep(.markdown-body h2) {
-  font-size: 1.5em;
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid #eaecef;
-}
-
-:deep(.markdown-body h3) {
-  font-size: 1.25em;
-}
-
-:deep(.markdown-body h4) {
-  font-size: 1em;
-}
-
-/* 段落样式 */
-:deep(.markdown-body p) {
-  width: 100% !important;
-  margin: 0 0 16px 0 !important;
-  text-align: left !important;
-}
-
-/* 列表样式 */
-:deep(.markdown-body ul),
-:deep(.markdown-body ol) {
-  width: 100% !important;
-  margin: 0 0 16px 0 !important;
-  padding-left: 2em !important;
-  text-align: left !important;
-}
-
-:deep(.markdown-body li) {
-  text-align: left !important;
-  margin: 0.25em 0 !important;
-}
-
-/* 代码块样式 */
-:deep(.markdown-body pre) {
-  width: 100% !important;
-  margin: 0 0 16px 0 !important;
-  padding: 16px !important;
-  overflow: auto;
-  font-size: 85%;
-  line-height: 1.45;
-  background-color: #f6f8fa;
-  border-radius: 6px;
-  text-align: left !important;
-}
-
-:deep(.markdown-body code) {
-  padding: 0.2em 0.4em;
+/* Markdown预览容器 */
+.markdown-preview {
+  width: 100%;
   margin: 0;
-  font-size: 85%;
-  background-color: rgba(27,31,35,0.05);
-  border-radius: 3px;
+  padding: 0;
+}
+
+/* Markdown 样式 */
+.markdown-body {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 20px;
+  text-align: left;
+  background-color: white;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 16px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.markdown-body > * {
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
   text-align: left !important;
 }
 
-/* 引用块样式 */
-:deep(.markdown-body blockquote) {
-  width: 100% !important;
-  margin: 0 0 16px 0 !important;
-  padding: 0 1em !important;
-  color: #6a737d;
-  border-left: 0.25em solid #dfe2e5;
-  text-align: left !important;
+.markdown-body > *:first-child {
+  margin-top: 0 !important;
 }
 
-/* 表格样式 */
-:deep(.markdown-body table) {
-  width: 100% !important;
-  margin: 0 0 16px 0 !important;
-  border-spacing: 0;
-  border-collapse: collapse;
-  text-align: left !important;
-}
-
-:deep(.markdown-body table th),
-:deep(.markdown-body table td) {
-  padding: 6px 13px;
-  border: 1px solid #dfe2e5;
-  text-align: left !important;
-}
-
-:deep(.markdown-body table th) {
-  font-weight: 600;
-  background-color: #f6f8fa;
-}
-
-:deep(.markdown-body table tr) {
-  background-color: #fff;
-  border-top: 1px solid #c6cbd1;
-}
-
-:deep(.markdown-body table tr:nth-child(2n)) {
-  background-color: #f6f8fa;
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .business-analysis {
-    padding: 15px;
-  }
-  
-  :deep(.markdown-body) {
-    padding: 15px !important;
-    font-size: 14px;
-  }
+.markdown-body > *:last-child {
+  margin-bottom: 0 !important;
 }
 
 /* 工具栏样式 */
@@ -491,13 +407,11 @@ onMounted(() => {
   padding: 10px;
   background-color: #f5f7fa;
   border-radius: 4px;
-  width: 100%;
 }
 
 /* 编辑器容器 */
 .editor-container {
   margin-top: 20px;
-  width: 100%;
 }
 
 /* 过渡动画 */

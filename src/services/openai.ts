@@ -50,7 +50,7 @@ ${projectBackground}
 完整的内容可以参考下面的示例：
 Epic:服务质检功能
 Story:作为门店员工, 我能够在Mobile端质检时可根据服务项检测项标准进行拍照
-AC:需求：门店员工在质检时可根据服务项检测项标准进行拍照；需求细节：新增字段‘检测标准’ ,服务项对应的每个检测项都需单独一行展示 新增入口‘示例图片’ 若有示例图片，入口才置亮，否则不显示 点击后展示图片页面，可关闭返回 点击‘保存’/‘质检完成’时需校验上传图片是否满足最小上传数量  
+AC:需求：门店员工在质检时可根据服务项检测项标准进行拍照；需求细节：新增字段'检测标准' ,服务项对应的每个检测项都需单独一行展示 新增入口'示例图片' 若有示例图片，入口才置亮，否则不显示 点击后展示图片页面，可关闭返回 点击'保存'/'质检完成'时需校验上传图片是否满足最小上传数量  
 需check内容：字段内容拼写规则是什么？比如检测项描述+最小上传数量，例如：刹车片更换照片(2张) 
 
 返回格式：请严格按照以下JSON格式返回10个用户故事：
@@ -538,6 +538,218 @@ ${ac}
       throw new Error('API调用次数超限，请稍后重试')
     } else {
       throw new Error(`API调用失败: ${apiError.message || '未知错误'}`)
+    }
+  }
+}
+
+// 工具调用相关类型定义
+export interface Tool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: any;
+  };
+}
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ToolCallResult {
+  tool_call_id: string;
+  role: 'tool';
+  content: string;
+}
+
+// 分析项目背景并确定需要调用的工具
+export async function analyzeProjectWithTools(
+  projectBackground: string,
+  tools: Tool[]
+): Promise<ToolCall[]> {
+  if (!openai) {
+    try {
+      initOpenAI();
+    } catch (error) {
+      throw new Error('请先设置OpenAI API Key');
+    }
+  }
+
+  if (!openai) throw new Error('OpenAI初始化失败');
+
+  const prompt = `你是一个经验丰富的项目分析专家。请分析以下项目背景，确定需要执行哪些分析工具以获得完整的项目分析。
+
+项目背景：
+${projectBackground}
+
+请根据项目背景，确定需要调用的分析工具。`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: '你是一个项目分析专家，用于分析项目需求并决定调用适当的分析工具。'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      tools: tools,
+      temperature: 0.1,
+      tool_choice: 'auto'
+    });
+
+    const responseMessage = response.choices[0].message;
+    
+    // 如果有工具调用
+    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+      return responseMessage.tool_calls;
+    }
+    
+    return [];
+  } catch (apiError: any) {
+    console.error('API调用错误:', apiError);
+    if (apiError.status === 401) {
+      throw new Error('API Key无效或已过期，请检查您的API Key');
+    } else if (apiError.status === 429) {
+      throw new Error('API调用次数超限，请稍后重试');
+    } else {
+      throw new Error(`API调用失败: ${apiError.message || '未知错误'}`);
+    }
+  }
+}
+
+// 执行完整的工具调用流程
+export async function executeWithTools(
+  projectBackground: string,
+  tools: Tool[],
+  toolExecutors: Record<string, (args: any) => Promise<any>>
+): Promise<{
+  finalResponse: string;
+  toolResults: Record<string, any>;
+}> {
+  if (!openai) {
+    try {
+      initOpenAI();
+    } catch (error) {
+      throw new Error('请先设置OpenAI API Key');
+    }
+  }
+
+  if (!openai) throw new Error('OpenAI初始化失败');
+
+  try {
+    // 初始消息
+    const messages: any[] = [
+      {
+        role: 'system',
+        content: '你是一个项目分析专家，用于分析项目需求并执行适当的分析工具。'
+      },
+      {
+        role: 'user',
+        content: `请分析以下项目背景，并使用适当的工具进行详细分析：\n\n${projectBackground}`
+      }
+    ];
+
+    const toolResults: Record<string, any> = {};
+    let finalResponse = '';
+
+    // 最多执行5轮工具调用
+    for (let i = 0; i < 5; i++) {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: messages,
+        tools: tools,
+        temperature: 0.1,
+        tool_choice: 'auto'
+      });
+
+      const responseMessage = response.choices[0].message;
+      messages.push(responseMessage);
+
+      // 如果没有工具调用，直接返回
+      if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
+        finalResponse = responseMessage.content || '';
+        break;
+      }
+
+      // 执行每个工具调用
+      for (const toolCall of responseMessage.tool_calls) {
+        if (toolCall.type === 'function') {
+          const { name, arguments: argsStr } = toolCall.function;
+          const executor = toolExecutors[name];
+
+          if (executor) {
+            try {
+              // 解析参数
+              const args = JSON.parse(argsStr);
+              
+              // 执行工具
+              const result = await executor(args);
+              toolResults[name] = result;
+              
+              // 添加工具结果到消息
+              messages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: JSON.stringify(result)
+              });
+            } catch (toolError: any) {
+              console.error(`Tool ${name} execution error:`, toolError);
+              messages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: JSON.stringify({ error: toolError.message || '工具执行出错' })
+              });
+            }
+          } else {
+            messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ error: `工具 ${name} 未定义` })
+            });
+          }
+        }
+      }
+    }
+
+    // 获取最终总结
+    if (!finalResponse) {
+      const summaryResponse = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          ...messages,
+          {
+            role: 'user',
+            content: '请基于上述分析工具的结果，提供项目分析的最终总结。'
+          }
+        ],
+        temperature: 0.1
+      });
+
+      finalResponse = summaryResponse.choices[0].message.content || '';
+    }
+
+    return {
+      finalResponse,
+      toolResults
+    };
+  } catch (apiError: any) {
+    console.error('API调用错误:', apiError);
+    if (apiError.status === 401) {
+      throw new Error('API Key无效或已过期，请检查您的API Key');
+    } else if (apiError.status === 429) {
+      throw new Error('API调用次数超限，请稍后重试');
+    } else {
+      throw new Error(`API调用失败: ${apiError.message || '未知错误'}`);
     }
   }
 } 

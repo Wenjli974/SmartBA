@@ -4,7 +4,10 @@ import { ref, onMounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import 'highlight.js/styles/github.css'
 import hljs from 'highlight.js'
+import AgentMode from '@/views/AgentMode.vue'
 
+// 添加应用模式状态管理，默认选择agent模式
+const appMode = ref('agent') // normal 或 agent
 const showHelp = ref(false)
 const helpContent = ref('')
 const md = new MarkdownIt({
@@ -32,8 +35,20 @@ const fetchReadme = async () => {
   }
 }
 
+// 切换应用模式函数
+const changeAppMode = (mode: string) => {
+  appMode.value = mode
+  // 可以添加本地存储，以便刷新页面后保持模式
+  localStorage.setItem('smartba-app-mode', mode)
+}
+
 onMounted(() => {
   fetchReadme()
+  // 从本地存储获取模式设置
+  const savedMode = localStorage.getItem('smartba-app-mode')
+  if (savedMode) {
+    appMode.value = savedMode
+  }
 })
 </script>
 
@@ -43,7 +58,9 @@ onMounted(() => {
       <el-header>
         <div class="header-content container">
           <h1>SmartBA</h1>
+          
           <el-menu
+            v-if="appMode === 'normal'"
             mode="horizontal"
             :router="true"
             :default-active="$route.path"
@@ -62,19 +79,32 @@ onMounted(() => {
               UI/UX 专家分析
             </el-menu-item>
           </el-menu>
-          <el-button
-            type="text"
-            class="help-button"
-            @click="showHelp = true"
-            aria-label="帮助文档"
-          >
-            <el-icon><QuestionFilled /></el-icon>
-          </el-button>
+          
+          <div v-else class="flex-grow"></div>
+          
+          <!-- 模式选择按钮组移到右侧 -->
+          <div class="header-right">
+            <el-radio-group v-model="appMode" @change="changeAppMode" size="small">
+              <el-radio-button label="normal">普通模式</el-radio-button>
+              <el-radio-button label="agent">Agent模式</el-radio-button>
+            </el-radio-group>
+            
+            <el-button
+              type="text"
+              class="help-button"
+              @click="showHelp = true"
+              aria-label="帮助文档"
+            >
+              <el-icon><QuestionFilled /></el-icon>
+            </el-button>
+          </div>
         </div>
       </el-header>
       <el-main>
         <div class="container">
-          <router-view v-slot="{ Component }">
+          <!-- 根据模式显示不同内容 -->
+          <agent-mode v-if="appMode === 'agent'" />
+          <router-view v-else v-slot="{ Component }">
             <transition name="fade" mode="out-in">
               <component :is="Component" />
             </transition>
@@ -133,9 +163,22 @@ body {
   color: #409EFF;
 }
 
+/* 模式选择器样式 */
+.mode-selector {
+  margin-right: 20px;
+}
+
 .el-main {
   padding: 20px;
   background-color: #f5f7fa;
+}
+
+/* Agent模式容器样式 */
+.agent-mode-container {
+  min-height: 500px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .el-menu {
@@ -319,5 +362,12 @@ body {
 [role="menuitem"]:focus {
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
+}
+
+/* 头部右侧区域样式 */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 </style>

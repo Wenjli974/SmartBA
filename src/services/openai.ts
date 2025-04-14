@@ -5,8 +5,9 @@ let openai: OpenAI | null = null
 
 // 获取默认的API Key
 const getDefaultApiKey = () => {
-  const storedKey = localStorage.getItem('openai_api_key')
-  return storedKey || import.meta.env.VITE_OPENAI_API_KEY || ''
+  //const storedKey = localStorage.getItem('openai_api_key')
+  const storedKey = import.meta.env.VITE_DEEPSEEK_API_KEY
+  return storedKey || import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 }
 
 export const initOpenAI = (apiKey?: string) => {
@@ -17,6 +18,7 @@ export const initOpenAI = (apiKey?: string) => {
   
   openai = new OpenAI({
     apiKey: key,
+    baseURL: 'https://api.deepseek.com',
     dangerouslyAllowBrowser: true
   })
 }
@@ -72,7 +74,8 @@ AC:需求：门店员工在质检时可根据服务项检测项标准进行拍�
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -169,7 +172,8 @@ ${JSON.stringify(stories, null, 2)}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'user',
@@ -226,7 +230,8 @@ ${projectBackground}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -324,7 +329,8 @@ ${projectBackground}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -355,14 +361,25 @@ ${projectBackground}
   }
 }
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY
-const API_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
+//const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY
+//const API_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 
 interface UIUXAnalysisResult {
   content: string  // Markdown 格式的内容
 }
 
 export async function generateUIUXAnalysis(projectBackground: string): Promise<UIUXAnalysisResult> {
+  if (!openai) {
+    // 如果openai实例不存在，尝试初始化
+    try {
+      initOpenAI()
+    } catch (error) {
+      throw new Error('请先设置OpenAI API Key')
+    }
+  }
+
+  if (!openai) throw new Error('OpenAI初始化失败')
+
   const prompt = `作为一名专业的UI/UX设计专家，请基于以下项目背景进行详细的界面和用户体验分析。请使用Markdown格式返回分析报告：
 
 项目背景：
@@ -425,10 +442,9 @@ ${projectBackground}
 4. 回复语言使用中文`
 
   try {
-    const response = await axios.post(
-      API_ENDPOINT,
-      {
-        model: 'gpt-4o',
+    const response = await openai.chat.completions.create({
+        //model: 'gpt-4o',
+        model: 'deepseek-chat',
         messages: [
           {
             role: 'system',
@@ -441,16 +457,12 @@ ${projectBackground}
         ],
         temperature: 0.1,
         max_tokens: 2000
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
       }
     )
 
-    const content = response.data.choices[0].message.content
+    //const content = response.data.choices[0].message.content
+    const content = response.choices[0].message.content
+    if (!content) throw new Error('No content generated')
     return { content }
   } catch (error) {
     console.error('OpenAI API 调用失败:', error)
@@ -511,7 +523,8 @@ ${ac}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',

@@ -3,10 +3,11 @@ import axios from 'axios'
 
 let openai: OpenAI | null = null
 
-// 获取默认的API Key
+// 获取.env中的DEEPSEEK_API_KEY
 const getDefaultApiKey = () => {
-  const storedKey = localStorage.getItem('openai_api_key')
-  return storedKey || import.meta.env.VITE_OPENAI_API_KEY || ''
+  //const storedKey = localStorage.getItem('openai_api_key')
+  const storedKey = import.meta.env.VITE_DEEPSEEK_API_KEY
+  return storedKey || import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 }
 
 export const initOpenAI = (apiKey?: string) => {
@@ -17,6 +18,7 @@ export const initOpenAI = (apiKey?: string) => {
   
   openai = new OpenAI({
     apiKey: key,
+    baseURL: 'https://api.deepseek.com',
     dangerouslyAllowBrowser: true
   })
 }
@@ -72,7 +74,8 @@ AC:需求：门店员工在质检时可根据服务项检测项标准进行拍�
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -169,7 +172,8 @@ ${JSON.stringify(stories, null, 2)}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'user',
@@ -226,7 +230,8 @@ ${projectBackground}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -324,7 +329,8 @@ ${projectBackground}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+     //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+     model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -428,7 +434,8 @@ ${projectBackground}
     const response = await axios.post(
       API_ENDPOINT,
       {
-        model: 'gpt-4o',
+        //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
         messages: [
           {
             role: 'system',
@@ -511,7 +518,8 @@ ${ac}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      //model: 'gpt-4o',  // gpt-4o 是gpt-4的升级版 模型名称不用修正
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -591,7 +599,8 @@ ${projectBackground}
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      //model: 'gpt-4o',
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
@@ -665,7 +674,8 @@ export async function executeWithTools(
     // 最多执行5轮工具调用
     for (let i = 0; i < 5; i++) {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        //model: 'gpt-4o',
+        model: 'deepseek-chat',
         messages: messages,
         tools: tools,
         temperature: 0.1,
@@ -724,7 +734,8 @@ export async function executeWithTools(
     // 获取最终总结
     if (!finalResponse) {
       const summaryResponse = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        // model: 'gpt-4o',
+        model: 'deepseek-chat',
         messages: [
           ...messages,
           {
